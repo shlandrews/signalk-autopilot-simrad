@@ -10,7 +10,7 @@
     "simnet",
     "tillerpilot"
   ],
-  "author": "Shlandrews",
+  "author": "shlandrews",
   "license": "MIT",
   "main": "index.js",
   "engines": {
