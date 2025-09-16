@@ -1,6 +1,10 @@
 const dgram = require('dgram');
 const path = require('path');
 
+const PLUGIN_ID = 'signalk-autopilot-simrad';
+const UI_ROUTE = `/${PLUGIN_ID}`;
+const REST_BASE_PATH = `/plugins/${PLUGIN_ID}`;
+
 const MODE_MAP = {
   standby: 0,
   auto: 1,
@@ -464,14 +468,16 @@ module.exports = function simradAutopilotPlugin(app) {
           path.join(__dirname, 'ui')
         );
         webAppRegistered = true;
-        app.debug(`Registered Simrad autopilot UI at /${plugin.id}`);
+        app.debug(`Registered Simrad autopilot UI at ${UI_ROUTE}`);
       } catch (err) {
         app.error(`Failed to register Simrad autopilot UI: ${err.message}`);
       }
       return;
     }
 
-    app.debug('Signal K host does not support registerPluginWebapp; UI not exposed.');
+    app.debug(
+      `Signal K host does not support registerPluginWebapp; UI not exposed at ${UI_ROUTE}.`
+    );
   }
 
   function unregisterWebApp() {
@@ -490,7 +496,7 @@ module.exports = function simradAutopilotPlugin(app) {
     webAppRegistered = false;
   }
 
-  plugin.id = 'signalk-autopilot-simrad';
+  plugin.id = PLUGIN_ID;
   plugin.name = 'Simrad Autopilot (TP22/TP32) – NMEA 2000';
   plugin.description = 'Control Simrad tillerpilots via PGN 127237 sent as UDP YDRAW frames.';
 
@@ -532,7 +538,11 @@ module.exports = function simradAutopilotPlugin(app) {
   };
 
   plugin.registerWithRouter = (router) => {
+    const wasRegistered = routesRegistered;
     addRoutes(router);
+    if (!wasRegistered && routesRegistered) {
+      app.debug(`Simrad autopilot REST endpoints mounted at ${REST_BASE_PATH}/*`);
+    }
   };
 
   plugin.start = (options) => {

@@ -13,6 +13,14 @@
   "author": "Shlandrews",
   "license": "MIT",
   "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/signalk-autopilot-simrad.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/signalk-autopilot-simrad/issues"
+  },
+  "homepage": "https://github.com/yourusername/signalk-autopilot-simrad#readme",
   "engines": {
     "node": ">=18"
   }

@@ -1,6 +1,7 @@
 (() => {
-  const BASE_PATH = '/plugins/signalk-autopilot-simrad';
-  const STORAGE_KEY = 'signalk-autopilot-simrad-base-url';
+  const PLUGIN_ID = 'signalk-autopilot-simrad';
+  const BASE_PATH = `/plugins/${PLUGIN_ID}`;
+  const STORAGE_KEY = `${PLUGIN_ID}-base-url`;
 
   const serverInput = document.getElementById('serverBase');
   const statusEl = document.getElementById('status');
