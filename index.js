@@ -490,7 +490,7 @@ module.exports = function simradAutopilotPlugin(app) {
     webAppRegistered = false;
   }
 
-  plugin.id = 'signalk-simrad-autopilot';
+  plugin.id = 'signalk-autopilot-simrad';
   plugin.name = 'Simrad Autopilot (TP22/TP32) – NMEA 2000';
   plugin.description = 'Control Simrad tillerpilots via PGN 127237 sent as UDP YDRAW frames.';
 
