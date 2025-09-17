@@ -1,6 +1,5 @@
 // Signal K plugin: Simrad Autopilot (TP22/TP32) via NMEA2000 PGN 127237
 // Author: Sam Andrews
-// Minimal version: relies on Signal K's built-in serving of /public
 
 const express = require('express');
 const path = require('path');
@@ -61,70 +60,70 @@ module.exports = function (app) {
     }
   };
 
-plugin.start = function (options) {
-  config = Object.assign(config, options || {});
-  udp = dgram.createSocket('udp4');
+  plugin.start = function (options) {
+    config = Object.assign(config, options || {});
+    udp = dgram.createSocket('udp4');
 
-  app.debug(
-    `Simrad autopilot plugin started; sending PGN 127237 to ${config.ydwgHost}:${config.ydwgPort}`
-  );
+    app.debug(
+      `Simrad autopilot plugin started; sending PGN 127237 to ${config.ydwgHost}:${config.ydwgPort}`
+    );
 
-  // >>> Add this block to force-serve your UI at /signalk-autopilot-simrad/
-  if (app.express) {
-    const publicPath = path.join(__dirname, 'public');
-    app.express.use('/signalk-autopilot-simrad', express.static(publicPath));
-    app.debug(`UI forced at /signalk-autopilot-simrad (static from ${publicPath})`);
-  } else {
-    app.debug('Express not available; cannot mount UI manually');
-  }
-  // <<< End UI mount
-
-  // Example subscriptions for headings
-  app.streambundle.getSelfStream('navigation.headingMagnetic').onValue((v) => {
-    if (typeof v === 'number') {
-      currentHeadingDeg = (v * 180 / Math.PI + 360) % 360;
+    // Force-serve UI at /signalk-autopilot-simrad/
+    if (app.express) {
+      const publicPath = path.join(__dirname, 'public');
+      app.express.use('/signalk-autopilot-simrad', express.static(publicPath));
+      app.debug(`UI forced at /signalk-autopilot-simrad (static from ${publicPath})`);
+    } else {
+      app.debug('Express not available; cannot mount UI manually');
     }
-  });
-  app.streambundle.getSelfStream('navigation.headingTrue').onValue((v) => {
-    if (config.headingReference === 'true' && typeof v === 'number') {
-      currentHeadingDeg = (v * 180 / Math.PI + 360) % 360;
-    }
-  });
 
-  // REST endpoints (these stay as-is)
-  const base = '/plugins/signalk-autopilot-simrad';
-  app.post(base + '/standby', (_req, res) => {
-    send127237({ mode: 'standby', heading: null });
-    res.json({ ok: true });
-  });
-  app.post(base + '/auto', (_req, res) => {
-    commandedHeadingDeg = commandedHeadingDeg ?? currentHeadingDeg ?? 0;
-    send127237({ mode: 'auto', heading: commandedHeadingDeg });
-    res.json({ ok: true, heading: commandedHeadingDeg });
-  });
-  app.post(base + '/wind', (_req, res) => {
-    send127237({ mode: 'wind', heading: commandedHeadingDeg });
-    res.json({ ok: true });
-  });
-  app.post(base + '/track', (_req, res) => {
-    send127237({ mode: 'track', heading: commandedHeadingDeg });
-    res.json({ ok: true });
-  });
+    // Subscriptions for headings
+    app.streambundle.getSelfStream('navigation.headingMagnetic').onValue((v) => {
+      if (typeof v === 'number') {
+        currentHeadingDeg = (v * 180 / Math.PI + 360) % 360;
+      }
+    });
+    app.streambundle.getSelfStream('navigation.headingTrue').onValue((v) => {
+      if (config.headingReference === 'true' && typeof v === 'number') {
+        currentHeadingDeg = (v * 180 / Math.PI + 360) % 360;
+      }
+    });
 
-  app.post(base + '/plus1', (_req, res) => { nudge(+1);  res.json({ ok: true, heading: commandedHeadingDeg }); });
-  app.post(base + '/minus1', (_req, res) => { nudge(-1); res.json({ ok: true, heading: commandedHeadingDeg }); });
-  app.post(base + '/plus10', (_req, res) => { nudge(+10);res.json({ ok: true, heading: commandedHeadingDeg }); });
-  app.post(base + '/minus10', (_req, res) => { nudge(-10);res.json({ ok: true, heading: commandedHeadingDeg }); });
+    // REST endpoints
+    const base = '/plugins/signalk-autopilot-simrad';
+    app.post(base + '/standby', (_req, res) => {
+      send127237({ mode: 'standby', heading: null });
+      res.json({ ok: true });
+    });
+    app.post(base + '/auto', (_req, res) => {
+      commandedHeadingDeg = commandedHeadingDeg ?? currentHeadingDeg ?? 0;
+      send127237({ mode: 'auto', heading: commandedHeadingDeg });
+      res.json({ ok: true, heading: commandedHeadingDeg });
+    });
+    app.post(base + '/wind', (_req, res) => {
+      send127237({ mode: 'wind', heading: commandedHeadingDeg });
+      res.json({ ok: true });
+    });
+    app.post(base + '/track', (_req, res) => {
+      send127237({ mode: 'track', heading: commandedHeadingDeg });
+      res.json({ ok: true });
+    });
 
-  app.post(base + '/setHeading', (req, res) => {
-    const h = Number(req.body?.heading);
-    if (!Number.isFinite(h)) return res.status(400).json({ ok: false, error: 'heading required' });
-    commandedHeadingDeg = ((h % 360) + 360) % 360;
-    send127237({ mode: 'auto', heading: commandedHeadingDeg });
-    res.json({ ok: true, heading: commandedHeadingDeg });
-  });
-};
+    app.post(base + '/plus1', (_req, res) => { nudge(+1); res.json({ ok: true, heading: commandedHeadingDeg }); });
+    app.post(base + '/minus1', (_req, res) => { nudge(-1); res.json({ ok: true, heading: commandedHeadingDeg }); });
+    app.post(base + '/plus10', (_req, res) => { nudge(+10); res.json({ ok: true, heading: commandedHeadingDeg }); });
+    app.post(base + '/minus10', (_req, res) => { nudge(-10); res.json({ ok: true, heading: commandedHeadingDeg }); });
 
+    app.post(base + '/setHeading', (req, res) => {
+      const h = Number(req.body?.heading);
+      if (!Number.isFinite(h)) {
+        return res.status(400).json({ ok: false, error: 'heading required' });
+      }
+      commandedHeadingDeg = ((h % 360) + 360) % 360;
+      send127237({ mode: 'auto', heading: commandedHeadingDeg });
+      res.json({ ok: true, heading: commandedHeadingDeg });
+    });
+  };
 
   plugin.stop = function () {
     if (udp) udp.close();
