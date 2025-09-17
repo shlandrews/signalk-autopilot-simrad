@@ -489,7 +489,7 @@ module.exports = function simradAutopilotPlugin(app) {
     const indexPath = path.join(staticDir, 'index.html');
 
     const router = express.Router();
-    router.get('/', (_req, res, next) => {
+    const serveIndex = (_req, res, next) => {
       fs.access(indexPath, fs.constants.R_OK, (accessErr) => {
         if (accessErr) {
           next(accessErr);
@@ -501,10 +501,25 @@ module.exports = function simradAutopilotPlugin(app) {
           }
         });
       });
-    });
+    };
+    router.get('/', serveIndex);
+    router.head('/', serveIndex);
     router.use('/', express.static(staticDir, { redirect: false }));
 
     expressApp.use(UI_ROUTE, router);
+
+    if (expressApp._router && Array.isArray(expressApp._router.stack)) {
+      const stack = expressApp._router.stack;
+      const index = stack.findIndex((layer) => layer && layer.handle === router);
+      if (index > 0) {
+        const [layer] = stack.splice(index, 1);
+        stack.unshift(layer);
+        app.debug(
+          `Elevated Simrad autopilot UI alias to the front of the Express stack for ${UI_ROUTE}`
+        );
+      }
+    }
+
     uiAliasLayer = { app: expressApp, router };
     app.debug(`Mounted Simrad autopilot UI alias at ${UI_ROUTE}`);
   }

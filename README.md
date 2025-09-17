@@ -94,7 +94,6 @@ http://<your-server>:3000/signalk-autopilot-simrad/
 
 The UI calls the REST endpoints above from the browser so you can drive the pilot directly. It is designed as a starting point—feel free to customise the layout or embed it into your own dashboards.
 
-
 ![Simrad autopilot UI preview showing four primary buttons](public/ui-preview.svg)
 
 ## Development
