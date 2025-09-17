@@ -1,10 +1,7 @@
 const dgram = require('dgram');
-const path = require('path');
-
 const PLUGIN_ID = 'signalk-autopilot-simrad';
-const UI_ROUTE = `/${PLUGIN_ID}`;
 const REST_BASE_PATH = `/plugins/${PLUGIN_ID}`;
-const PUBLIC_DIR = path.join(__dirname, 'public');
+const UI_ALIAS_PATH = `/${PLUGIN_ID}`;
 
 const MODE_MAP = {
   standby: 0,
@@ -76,9 +73,7 @@ module.exports = function simradAutopilotPlugin(app) {
   let subscriptions = [];
   let routesRegistered = false;
   let putHandlersRegistered = false;
-  let webAppRegistered = false;
-  let uiAliasApp = null;
-  let uiAliasLayers = [];
+  let uiAliasCleanup = null;
 
   function updateCurrentHeading() {
     const preferTrue = config.headingReference === 'true';
@@ -458,161 +453,60 @@ module.exports = function simradAutopilotPlugin(app) {
     routesRegistered = true;
   }
 
-  function serveUiIndex(_req, res, next) {
-    fs.access(PUBLIC_INDEX_PATH, fs.constants.R_OK, (accessErr) => {
-      if (accessErr) {
-        next(accessErr);
-        return;
-      }
-      res.sendFile(PUBLIC_INDEX_PATH, (sendErr) => {
-        if (sendErr) {
-          next(sendErr);
-        }
-      });
-    });
-  }
-
-  function attachStaticUiBundle(targetRouter, expressLib, mountPath) {
-    if (!targetRouter || !expressLib || typeof expressLib.static !== 'function') {
-      return;
-    }
-
-    const normalised = !mountPath || mountPath === '/' ? '/' : `/${mountPath.replace(/^\/+|\/+$/g, '')}`;
-    const basePath = normalised === '/' ? '/' : normalised.replace(/\/+$/, '') || '/';
-
-    const registerHandlers = (pathPrefix) => {
-      targetRouter.get(pathPrefix, serveUiIndex);
-      targetRouter.head(pathPrefix, serveUiIndex);
-      targetRouter.use(pathPrefix, expressLib.static(PUBLIC_DIR, { redirect: false }));
-    };
-
-    registerHandlers(basePath);
-
-    if (basePath !== '/') {
-      registerHandlers(`${basePath}/`);
-    }
-  }
-
-  function requestRouterUiFallback(reason) {
-    if (routerUiFallbackAttached) {
-      return;
-    }
-
-    routerUiFallbackRequested = true;
-
-    if (reason && !routerUiFallbackReasons.includes(reason)) {
-      routerUiFallbackReasons.push(reason);
-    }
-
-    if (pluginRouter) {
-      mountRouterUiFallback();
-    }
-  }
-
-  function mountRouterUiFallback() {
-    if (!routerUiFallbackRequested || routerUiFallbackAttached || !pluginRouter) {
-      return;
-    }
-
-    let expressLib;
-    try {
-      expressLib = require('express');
-    } catch (err) {
-      app.error(
-        `Express dependency not available; cannot expose UI fallback on plugin router: ${err.message}`
-      );
-      return;
-    }
-
-    attachStaticUiBundle(pluginRouter, expressLib, '/');
-    attachStaticUiBundle(pluginRouter, expressLib, UI_ROUTE);
-
-    routerUiFallbackAttached = true;
-    const reasonSuffix = routerUiFallbackReasons.length
-      ? ` (fallback reason: ${routerUiFallbackReasons.join(', ')})`
-      : '';
-    app.debug(
-      `Mounted Simrad autopilot UI fallback on plugin router at ${REST_BASE_PATH}/ and ${UI_ROUTE}/ paths${reasonSuffix}.`
+  function getExpressApp() {
+    return (
+      (typeof app.getExpressApp === 'function' && app.getExpressApp()) ||
+      app.express ||
+      app.expressApp ||
+      (app.server && app.server.app) ||
+      null
     );
   }
 
   function registerUiAlias() {
-    if (uiAliasLayers.length) {
+    if (uiAliasCleanup) {
       return;
     }
 
-    const expressApp = app.express;
+    const expressApp = getExpressApp();
     if (!expressApp || typeof expressApp.get !== 'function') {
       app.debug(
-        `Express not available; use ${REST_BASE_PATH}/ for the UI`
+        `Express application not available; skipping UI alias registration for ${UI_ALIAS_PATH}`
       );
-      requestRouterUiFallback('Express app unavailable for UI alias');
       return;
     }
-    const redirectTarget = `${REST_BASE_PATH}/`;
-    const handler = (_req, res) => {
-      res.redirect(redirectTarget);
+
+    const target = `${REST_BASE_PATH}/`;
+    const redirectWithoutSlash = (_req, res) => res.redirect(302, target);
+    const redirectWithSlash = (_req, res) => res.redirect(302, target);
+
+    expressApp.get(UI_ALIAS_PATH, redirectWithoutSlash);
+    expressApp.get(`${UI_ALIAS_PATH}/`, redirectWithSlash);
+
+    uiAliasCleanup = () => {
+      if (!expressApp._router || !Array.isArray(expressApp._router.stack)) {
+        uiAliasCleanup = null;
+        return;
+      }
+
+      expressApp._router.stack = expressApp._router.stack.filter((layer) => {
+        if (!layer || !layer.route) {
+          return true;
+        }
+        const { path } = layer.route;
+        return path !== UI_ALIAS_PATH && path !== `${UI_ALIAS_PATH}/`;
+      });
+
+      uiAliasCleanup = null;
     };
 
-    const paths = [UI_ROUTE, `${UI_ROUTE}/`];
-    uiAliasApp = expressApp;
-
-    paths.forEach((aliasPath) => {
-      expressApp.get(aliasPath, handler);
-      if (expressApp._router && Array.isArray(expressApp._router.stack)) {
-        const layer = expressApp._router.stack[expressApp._router.stack.length - 1];
-        if (layer && !uiAliasLayers.includes(layer)) {
-          uiAliasLayers.push(layer);
-        }
-      }
-    });
-
-    app.debug(`UI alias mounted at ${UI_ROUTE} → ${redirectTarget}`);
+    app.debug(`Simrad autopilot UI alias redirects ${UI_ALIAS_PATH} -> ${target}`);
   }
 
   function unregisterUiAlias() {
-    if (!uiAliasLayers.length) {
-      return;
+    if (typeof uiAliasCleanup === 'function') {
+      uiAliasCleanup();
     }
-
-    if (uiAliasApp && uiAliasApp._router && Array.isArray(uiAliasApp._router.stack)) {
-      uiAliasApp._router.stack = uiAliasApp._router.stack.filter(
-        (layer) => !uiAliasLayers.includes(layer)
-      );
-    }
-
-    uiAliasLayers = [];
-    uiAliasApp = null;
-  }
-
-  function registerWebApp() {
-    if (!webAppRegistered && typeof app.registerPluginWebapp === 'function') {
-      try {
-        app.registerPluginWebapp(plugin.id, plugin.name, PUBLIC_DIR);
-        webAppRegistered = true;
-        app.debug(`Registered Simrad autopilot UI at /plugins/${PLUGIN_ID}`);
-      } catch (err) {
-        app.error(`Failed to register Simrad autopilot UI: ${err.message}`);
-        app.debug(`UI assets remain available at ${REST_BASE_PATH}/`);
-      }
-    } else if (!webAppRegistered) {
-      app.debug(`Signal K host does not support registerPluginWebapp; use ${REST_BASE_PATH}/ for the UI`);
-    }
-
-    registerUiAlias();
-  }
-
-  function unregisterWebApp() {
-    if (webAppRegistered && typeof app.unregisterPluginWebapp === 'function') {
-      try {
-        app.unregisterPluginWebapp(plugin.id);
-      } catch (err) {
-        app.error(`Failed to unregister Simrad autopilot UI: ${err.message}`);
-      }
-    }
-
-    webAppRegistered = false;
-    unregisterUiAlias();
   }
 
   plugin.id = PLUGIN_ID;
@@ -659,7 +553,6 @@ module.exports = function simradAutopilotPlugin(app) {
   plugin.registerWithRouter = (router) => {
     const wasRegistered = routesRegistered;
     addRoutes(router);
-
     if (!wasRegistered && routesRegistered) {
       app.debug(`Simrad autopilot REST endpoints mounted at ${REST_BASE_PATH}/*`);
     }
@@ -671,7 +564,7 @@ module.exports = function simradAutopilotPlugin(app) {
     openUdpSocket();
     startSubscriptions();
     registerPutHandlers();
-    registerWebApp();
+    registerUiAlias();
     updateCurrentHeading();
     app.debug(
       `Simrad autopilot plugin started; sending PGN 127237 to ${config.ydwgHost}:${config.ydwgPort}`
@@ -686,7 +579,7 @@ module.exports = function simradAutopilotPlugin(app) {
   plugin.stop = () => {
     stopSubscriptions();
     unregisterPutHandlers();
-    unregisterWebApp();
+    unregisterUiAlias();
     closeUdpSocket();
     commandedHeadingDeg = null;
     if (app.setPluginStatus) {

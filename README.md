@@ -4,7 +4,7 @@
 A Signal K server plugin for controlling **Simrad SimNet/NMEA 2000 tillerpilots** (TP22/TP32 and compatible pilots) by transmitting **PGN 127237 – Heading/Track Control**. The plugin targets gateways that accept raw NMEA 2000 frames over UDP using the Yacht Devices `YDRAW` format and exposes both REST and Signal K `PUT` interfaces for steering commands.
 
 
-Once enabled, Signal K registers the plugin under the slug `signalk-autopilot-simrad`, which means the REST API is available at `/plugins/signalk-autopilot-simrad/*` and the optional UI lives at `/plugins/signalk-autopilot-simrad/` (with `/signalk-autopilot-simrad/` kept as a convenience alias on hosts that expose the admin Express app).
+Once enabled, Signal K registers the plugin under the slug `signalk-autopilot-simrad`, which means the REST API is available at `/plugins/signalk-autopilot-simrad/*` and the optional UI is automatically hosted at `/plugins/signalk-autopilot-simrad/` (with `/signalk-autopilot-simrad/` redirecting there on hosts that expose Express).
 
 
 ## Features
@@ -94,17 +94,8 @@ A minimal web UI lives in [`public/`](public/) for experimentation or further de
 http://<your-server>:3000/plugins/signalk-autopilot-simrad/
 ```
 
-If the host exposes the admin Express app, the plugin also registers a shortcut that redirects to the same assets:
+If the Signal K host exposes its Express instance, the shorter `http://<your-server>:3000/signalk-autopilot-simrad/` URL redirects to the same page for convenience.
 
-```
-http://<your-server>:3000/signalk-autopilot-simrad/
-```
-
-Signal K releases that lack `registerPluginWebapp` (or where the admin Express app isn’t exposed) use a router-based fallback, so the same UI is also reachable via:
-
-```
-http://<your-server>:3000/plugins/signalk-autopilot-simrad/
-```
 
 The UI calls the REST endpoints above from the browser so you can drive the pilot directly. It is designed as a starting point—feel free to customise the layout or embed it into your own dashboards.
 
