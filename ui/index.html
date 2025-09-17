@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Simrad Autopilot Control</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="panel">
+      <header>
+        <h1>Simrad Autopilot</h1>
+        <p class="subtitle">Send REST commands to the Signal K Simrad autopilot plugin.</p>
+      </header>
+
+      <section class="config">
+        <label for="serverBase">Signal K server base URL</label>
+        <input id="serverBase" type="text" placeholder="http://localhost:3000" />
+      </section>
+
+      <section class="group">
+        <h2>Modes</h2>
+        <div class="button-grid">
+          <button data-endpoint="/standby">Standby</button>
+          <button data-endpoint="/auto">Auto</button>
+          <button data-endpoint="/wind">Wind</button>
+          <button data-endpoint="/track">Track</button>
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>Heading nudges</h2>
+        <div class="button-grid">
+          <button data-endpoint="/minus10">−10°</button>
+          <button data-endpoint="/minus1">−1°</button>
+          <button data-endpoint="/plus1">+1°</button>
+          <button data-endpoint="/plus10">+10°</button>
+          <button data-endpoint="/tack">Tack</button>
+          <button data-endpoint="/gybe">Gybe</button>
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>Set heading</h2>
+        <form id="headingForm">
+          <label for="headingInput">Heading (degrees)</label>
+          <div class="heading-row">
+            <input id="headingInput" type="number" min="0" max="359" step="1" placeholder="0-359" />
+            <button type="submit">Set &amp; Engage Auto</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="group status" aria-live="polite">
+        <h2>Status</h2>
+        <pre id="status">Ready.</pre>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
