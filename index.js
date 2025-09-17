@@ -1,4 +1,5 @@
 const dgram = require('dgram');
+const fs = require('fs');
 const path = require('path');
 
 const PLUGIN_ID = 'signalk-autopilot-simrad';
@@ -76,6 +77,7 @@ module.exports = function simradAutopilotPlugin(app) {
   let routesRegistered = false;
   let putHandlersRegistered = false;
   let webAppRegistered = false;
+  let uiAliasLayer = null;
 
   function updateCurrentHeading() {
     const preferTrue = config.headingReference === 'true';
@@ -455,12 +457,75 @@ module.exports = function simradAutopilotPlugin(app) {
     routesRegistered = true;
   }
 
-  function registerWebApp() {
-    if (webAppRegistered) {
+  function registerUiAlias() {
+    if (uiAliasLayer) {
       return;
     }
 
-    if (typeof app.registerPluginWebapp === 'function') {
+    const expressApp =
+      (typeof app.getExpressApp === 'function' && app.getExpressApp()) ||
+      app.expressApp ||
+      (app.server && app.server.app) ||
+      null;
+
+    if (!expressApp || typeof expressApp.use !== 'function') {
+      app.debug(
+        `Express application not available; cannot mount UI alias at ${UI_ROUTE}`
+      );
+      return;
+    }
+
+    let express;
+    try {
+      express = require('express');
+    } catch (err) {
+      app.error(
+        `Express dependency not available; cannot expose UI alias at ${UI_ROUTE}: ${err.message}`
+      );
+      return;
+    }
+
+    const staticDir = path.join(__dirname, 'public');
+    const indexPath = path.join(staticDir, 'index.html');
+
+    const router = express.Router();
+    router.get('/', (_req, res, next) => {
+      fs.access(indexPath, fs.constants.R_OK, (accessErr) => {
+        if (accessErr) {
+          next(accessErr);
+          return;
+        }
+        res.sendFile(indexPath, (sendErr) => {
+          if (sendErr) {
+            next(sendErr);
+          }
+        });
+      });
+    });
+    router.use('/', express.static(staticDir, { redirect: false }));
+
+    expressApp.use(UI_ROUTE, router);
+    uiAliasLayer = { app: expressApp, router };
+    app.debug(`Mounted Simrad autopilot UI alias at ${UI_ROUTE}`);
+  }
+
+  function unregisterUiAlias() {
+    if (!uiAliasLayer) {
+      return;
+    }
+
+    const { app: expressApp, router } = uiAliasLayer;
+    if (expressApp && expressApp._router && Array.isArray(expressApp._router.stack)) {
+      expressApp._router.stack = expressApp._router.stack.filter(
+        (layer) => layer && layer.handle !== router
+      );
+    }
+
+    uiAliasLayer = null;
+  }
+
+  function registerWebApp() {
+    if (!webAppRegistered && typeof app.registerPluginWebapp === 'function') {
       try {
         app.registerPluginWebapp(
           plugin.id,
@@ -468,24 +533,21 @@ module.exports = function simradAutopilotPlugin(app) {
           path.join(__dirname, 'public')
         );
         webAppRegistered = true;
-        app.debug(`Registered Simrad autopilot UI at ${UI_ROUTE}`);
+        app.debug(`Registered Simrad autopilot UI at /plugins/${PLUGIN_ID}`);
       } catch (err) {
         app.error(`Failed to register Simrad autopilot UI: ${err.message}`);
       }
-      return;
+    } else if (!webAppRegistered) {
+      app.debug(
+        'Signal K host does not support registerPluginWebapp; skipping admin UI registration.'
+      );
     }
 
-    app.debug(
-      `Signal K host does not support registerPluginWebapp; UI not exposed at ${UI_ROUTE}.`
-    );
+    registerUiAlias();
   }
 
   function unregisterWebApp() {
-    if (!webAppRegistered) {
-      return;
-    }
-
-    if (typeof app.unregisterPluginWebapp === 'function') {
+    if (webAppRegistered && typeof app.unregisterPluginWebapp === 'function') {
       try {
         app.unregisterPluginWebapp(plugin.id);
       } catch (err) {
@@ -494,6 +556,7 @@ module.exports = function simradAutopilotPlugin(app) {
     }
 
     webAppRegistered = false;
+    unregisterUiAlias();
   }
 
   plugin.id = PLUGIN_ID;
