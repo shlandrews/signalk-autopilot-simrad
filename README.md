@@ -3,9 +3,7 @@
 
 A Signal K server plugin for controlling **Simrad SimNet/NMEA 2000 tillerpilots** (TP22/TP32 and compatible pilots) by transmitting **PGN 127237 – Heading/Track Control**. The plugin targets gateways that accept raw NMEA 2000 frames over UDP using the Yacht Devices `YDRAW` format and exposes both REST and Signal K `PUT` interfaces for steering commands.
 
-
-Once enabled, Signal K registers the plugin under the slug `signalk-autopilot-simrad`, which means the REST API is available at `/plugins/signalk-autopilot-simrad/*` and the optional UI is automatically hosted at `/plugins/signalk-autopilot-simrad/` (with `/signalk-autopilot-simrad/` redirecting there on hosts that expose Express).
-
+Signal K registers the plugin under the slug `signalk-autopilot-simrad`, so the REST API is available at `/plugins/signalk-autopilot-simrad/*`. The browser UI that ships with this repository is now served independently of Signal K; see [Standalone UI](#standalone-ui) for launch instructions.
 
 ## Features
 
@@ -86,20 +84,21 @@ Signal K clients can issue PUT requests to `steering.autopilot.command` on `vess
 
 The handler returns `state: "SUCCESS"` on completion or provides an error message if the command cannot be fulfilled (for example when no heading data is available).
 
-## Optional UI stub
 
-A minimal web UI lives in [`public/`](public/) for experimentation or further development. When the plugin is enabled, Signal K serves it automatically at:
+## Standalone UI
 
+A minimal web UI lives in [`ui/`](ui/) for experimentation or further development. The Signal K plugin no longer attempts to host these files; run them with any static web server and point the page at your Signal K instance.
+
+One simple option using Python’s built-in HTTP server:
+
+```sh
+cd ui
+python3 -m http.server 5173
 ```
-http://<your-server>:3000/plugins/signalk-autopilot-simrad/
-```
 
-If the Signal K host exposes its Express instance, the shorter `http://<your-server>:3000/signalk-autopilot-simrad/` URL redirects to the same page for convenience.
+Then open <http://localhost:5173> (or replace `localhost` with the machine running the UI), enter the base URL of your Signal K server (for example `http://192.168.1.106:3000`), and start issuing commands. The UI calls the REST endpoints described above so you can drive the pilot directly from the browser.
 
-
-The UI calls the REST endpoints above from the browser so you can drive the pilot directly. It is designed as a starting point—feel free to customise the layout or embed it into your own dashboards.
-
-![Simrad autopilot UI preview showing four primary buttons](public/ui-preview.svg)
+![Simrad autopilot UI preview showing four primary buttons](ui/ui-preview.svg)
 
 ## Development
 

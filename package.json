@@ -15,9 +15,6 @@
   ],
   "author": "Shlandrews",
   "license": "MIT",
-  "signalk-plugin-enabled-by-default": false,
-  "signalk-plugin-schema": true,
-  "signalk-plugin-has-ui": true,
   "main": "index.js",
   "repository": {
     "type": "git",
