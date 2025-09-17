@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "Signal K plugin for controlling Simrad SimNet/NMEA 2000 tillerpilots via PGN 127237.",
   "keywords": [
+    "signalk-node-server-plugin",
+    "signalk-plugin",
+    "signalk-category-nmea-2000",
     "signalk",
     "simrad",
     "autopilot",
@@ -15,12 +18,12 @@
   "main": "index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/signalk-autopilot-simrad.git"
+    "url": "https://github.com/shlandrews/signalk-autopilot-simrad.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/signalk-autopilot-simrad/issues"
+    "url": "https://github.com/shlandrews/signalk-autopilot-simrad/issues"
   },
-  "homepage": "https://github.com/yourusername/signalk-autopilot-simrad#readme",
+  "homepage": "https://github.com/shlandrews/signalk-autopilot-simrad#readme",
   "engines": {
     "node": ">=18"
   }
