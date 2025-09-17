@@ -458,6 +458,84 @@ module.exports = function simradAutopilotPlugin(app) {
     routesRegistered = true;
   }
 
+  function serveUiIndex(_req, res, next) {
+    fs.access(PUBLIC_INDEX_PATH, fs.constants.R_OK, (accessErr) => {
+      if (accessErr) {
+        next(accessErr);
+        return;
+      }
+      res.sendFile(PUBLIC_INDEX_PATH, (sendErr) => {
+        if (sendErr) {
+          next(sendErr);
+        }
+      });
+    });
+  }
+
+  function attachStaticUiBundle(targetRouter, expressLib, mountPath) {
+    if (!targetRouter || !expressLib || typeof expressLib.static !== 'function') {
+      return;
+    }
+
+    const normalised = !mountPath || mountPath === '/' ? '/' : `/${mountPath.replace(/^\/+|\/+$/g, '')}`;
+    const basePath = normalised === '/' ? '/' : normalised.replace(/\/+$/, '') || '/';
+
+    const registerHandlers = (pathPrefix) => {
+      targetRouter.get(pathPrefix, serveUiIndex);
+      targetRouter.head(pathPrefix, serveUiIndex);
+      targetRouter.use(pathPrefix, expressLib.static(PUBLIC_DIR, { redirect: false }));
+    };
+
+    registerHandlers(basePath);
+
+    if (basePath !== '/') {
+      registerHandlers(`${basePath}/`);
+    }
+  }
+
+  function requestRouterUiFallback(reason) {
+    if (routerUiFallbackAttached) {
+      return;
+    }
+
+    routerUiFallbackRequested = true;
+
+    if (reason && !routerUiFallbackReasons.includes(reason)) {
+      routerUiFallbackReasons.push(reason);
+    }
+
+    if (pluginRouter) {
+      mountRouterUiFallback();
+    }
+  }
+
+  function mountRouterUiFallback() {
+    if (!routerUiFallbackRequested || routerUiFallbackAttached || !pluginRouter) {
+      return;
+    }
+
+    let expressLib;
+    try {
+      expressLib = require('express');
+    } catch (err) {
+      app.error(
+        `Express dependency not available; cannot expose UI fallback on plugin router: ${err.message}`
+      );
+      return;
+    }
+
+    attachStaticUiBundle(pluginRouter, expressLib, '/');
+    attachStaticUiBundle(pluginRouter, expressLib, UI_ROUTE);
+
+    routerUiFallbackAttached = true;
+    const reasonSuffix = routerUiFallbackReasons.length
+      ? ` (fallback reason: ${routerUiFallbackReasons.join(', ')})`
+      : '';
+    app.debug(
+      `Mounted Simrad autopilot UI fallback on plugin router at ${REST_BASE_PATH}/ and ${UI_ROUTE}/ paths${reasonSuffix}.`
+    );
+  }
+
   function registerUiAlias() {
     if (uiAliasLayers.length) {
       return;
@@ -468,9 +546,9 @@ module.exports = function simradAutopilotPlugin(app) {
       app.debug(
         `Express not available; use ${REST_BASE_PATH}/ for the UI`
       );
+      requestRouterUiFallback('Express app unavailable for UI alias');
       return;
     }
-
     const redirectTarget = `${REST_BASE_PATH}/`;
     const handler = (_req, res) => {
       res.redirect(redirectTarget);
