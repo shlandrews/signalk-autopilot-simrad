@@ -2,6 +2,8 @@
 // Author: Sam Andrews
 // Minimal version: relies on Signal K's built-in serving of /public
 
+const express = require('express');
+const path = require('path');
 const dgram = require('dgram');
 
 module.exports = function (app) {
