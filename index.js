@@ -5,6 +5,7 @@ const PLUGIN_ID = 'signalk-autopilot-simrad';
 const UI_ROUTE = `/${PLUGIN_ID}`;
 const REST_BASE_PATH = `/plugins/${PLUGIN_ID}`;
 
+
 const MODE_MAP = {
   standby: 0,
   auto: 1,
@@ -76,6 +77,7 @@ module.exports = function simradAutopilotPlugin(app) {
   let routesRegistered = false;
   let putHandlersRegistered = false;
   let webAppRegistered = false;
+
 
   function updateCurrentHeading() {
     const preferTrue = config.headingReference === 'true';

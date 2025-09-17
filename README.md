@@ -1,8 +1,10 @@
+
 # signalk-autopilot-simrad
 
 A Signal K server plugin for controlling **Simrad SimNet/NMEA 2000 tillerpilots** (TP22/TP32 and compatible pilots) by transmitting **PGN 127237 – Heading/Track Control**. The plugin targets gateways that accept raw NMEA 2000 frames over UDP using the Yacht Devices `YDRAW` format and exposes both REST and Signal K `PUT` interfaces for steering commands.
 
 Once enabled, Signal K registers the plugin under the slug `signalk-autopilot-simrad`, which means the REST API is available at `/plugins/signalk-autopilot-simrad/*` and the optional UI is hosted at `/signalk-autopilot-simrad/`.
+
 
 ## Features
 
@@ -26,6 +28,7 @@ Once enabled, Signal K registers the plugin under the slug `signalk-autopilot-si
    ```sh
    cd ~/.signalk/node_modules
    git clone https://github.com/yourusername/signalk-autopilot-simrad.git
+
    ```
 
 2. Restart the Signal K server.
@@ -48,6 +51,7 @@ The plugin listens to `navigation.headingMagnetic` and `navigation.headingTrue` 
 
 Routes are available under `/plugins/signalk-autopilot-simrad/*`:
 
+
 | Endpoint | Description |
 | --- | --- |
 | `POST /standby` | Put the pilot into standby. |
@@ -62,8 +66,10 @@ Routes are available under `/plugins/signalk-autopilot-simrad/*`:
 Example commands:
 
 ```sh
+
 curl -X POST http://signalk.local:3000/plugins/signalk-autopilot-simrad/auto
 curl -X POST http://signalk.local:3000/plugins/signalk-autopilot-simrad/setHeading \
+
   -H 'Content-Type: application/json' \
   -d '{"heading": 215}'
 ```
@@ -85,6 +91,7 @@ The handler returns `state: "SUCCESS"` on completion or provides an error messag
 
 ## Optional UI stub
 
+
 A minimal web UI lives in [`ui/`](ui/) for experimentation or further development. When the plugin is enabled, Signal K serves it automatically at:
 
 ```
@@ -92,6 +99,7 @@ http://<your-server>:3000/signalk-autopilot-simrad/
 ```
 
 The UI calls the REST endpoints above from the browser so you can drive the pilot directly. It is designed as a starting point—feel free to customise the layout or embed it into your own dashboards.
+
 
 ![Simrad autopilot UI preview showing four primary buttons](ui/ui-preview.svg)
 
