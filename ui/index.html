@@ -16,6 +16,20 @@
       <section class="config">
         <label for="serverBase">Signal K server base URL</label>
         <input id="serverBase" type="text" placeholder="http://localhost:3000" />
+
+        <label for="tokenInput">Signal K access token (optional)</label>
+        <input
+          id="tokenInput"
+          type="password"
+          autocomplete="off"
+          placeholder="Paste bearer token"
+        />
+
+        <label class="checkbox">
+          <input id="useCredentials" type="checkbox" />
+          Use browser session (requires login at Signal&nbsp;K admin UI)
+        </label>
+
       </section>
 
       <section class="group">
