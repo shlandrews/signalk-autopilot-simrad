@@ -2,12 +2,8 @@
   const PLUGIN_ID = 'signalk-autopilot-simrad';
   const BASE_PATH = `/plugins/${PLUGIN_ID}`;
   const STORAGE_KEY = `${PLUGIN_ID}-base-url`;
-  const TOKEN_STORAGE_KEY = `${PLUGIN_ID}-auth-token`;
-  const CREDS_STORAGE_KEY = `${PLUGIN_ID}-use-credentials`;
 
   const serverInput = document.getElementById('serverBase');
-  const tokenInput = document.getElementById('tokenInput');
-  const credentialsCheckbox = document.getElementById('useCredentials');
   const statusEl = document.getElementById('status');
   const headingForm = document.getElementById('headingForm');
   const headingInput = document.getElementById('headingInput');
@@ -15,49 +11,31 @@
 
   const defaultBase = window.location.origin || 'http://localhost:3000';
 
-
-  function readStored(key) {
+  function readStoredBase() {
     try {
-      return window.localStorage.getItem(key);
+      return window.localStorage.getItem(STORAGE_KEY);
     } catch (_err) {
       return null;
     }
   }
 
-  function writeStored(key, value) {
+  function writeStoredBase(value) {
     try {
-      if (value !== undefined && value !== null && value !== '') {
-        window.localStorage.setItem(key, value);
+      if (value) {
+        window.localStorage.setItem(STORAGE_KEY, value);
       } else {
-        window.localStorage.removeItem(key);
+        window.localStorage.removeItem(STORAGE_KEY);
       }
     } catch (_err) {
       // ignore storage errors (e.g., disabled cookies)
     }
   }
 
-  function writeStoredBoolean(key, value) {
-    writeStored(key, value ? 'true' : '');
-  }
-
-  const storedBase = readStored(STORAGE_KEY);
-  if (serverInput) {
-    serverInput.value = storedBase || defaultBase;
-  }
-
-  const storedToken = readStored(TOKEN_STORAGE_KEY);
-  if (tokenInput && typeof storedToken === 'string') {
-    tokenInput.value = storedToken;
-  }
-
-  const storedCreds = readStored(CREDS_STORAGE_KEY);
-  if (credentialsCheckbox) {
-    credentialsCheckbox.checked = storedCreds === 'true';
-  }
+  const storedBase = readStoredBase();
+  serverInput.value = storedBase || defaultBase;
 
   function pluginBaseUrl() {
-    const base = (serverInput && serverInput.value ? serverInput.value : defaultBase).trim();
-   
+    const base = (serverInput.value || defaultBase).trim();
     if (!base) {
       return `${defaultBase}${BASE_PATH}`;
     }
@@ -75,20 +53,12 @@
 
   async function post(endpoint, body) {
     const url = `${pluginBaseUrl()}${endpoint}`;
-    const token = tokenInput ? tokenInput.value.trim() : '';
-    const useCredentials = Boolean(credentialsCheckbox && credentialsCheckbox.checked) && !token;
     const options = {
       method: 'POST',
       headers: {
         'Accept': 'application/json'
-      },
-      credentials: useCredentials ? 'include' : 'omit'
+      }
     };
-
-    if (token) {
-      options.headers['Authorization'] = `Bearer ${token}`;
-    }
-
     if (body !== undefined) {
       options.headers['Content-Type'] = 'application/json';
       options.body = JSON.stringify(body);
@@ -115,7 +85,7 @@
         headingInput.value = Math.round(data.heading).toString().padStart(3, '0');
       }
     } catch (err) {
-      setStatus(`Error calling ${url}: ${err.message}`, true);
+      setStatus(`Error: ${err.message}`, true);
     }
   }
 
@@ -145,38 +115,10 @@
     post('/setHeading', { heading });
   });
 
-  if (serverInput) {
-    serverInput.addEventListener('change', () => {
-      const value = serverInput.value.trim();
-      writeStored(STORAGE_KEY, value);
-    });
-  }
-
-  if (tokenInput) {
-    tokenInput.addEventListener('change', () => {
-      const value = tokenInput.value.trim();
-      writeStored(TOKEN_STORAGE_KEY, value);
-      if (value) {
-        setStatus('Bearer token saved. All requests will include Authorization headers.');
-      } else {
-        setStatus('Bearer token cleared.');
-      }
-    });
-  }
-
-  if (credentialsCheckbox) {
-    credentialsCheckbox.addEventListener('change', () => {
-      writeStoredBoolean(CREDS_STORAGE_KEY, credentialsCheckbox.checked);
-      if (credentialsCheckbox.checked && tokenInput && tokenInput.value.trim()) {
-        setStatus('Browser credentials enabled, but bearer token remains active and takes precedence.');
-      } else if (credentialsCheckbox.checked) {
-        setStatus('Browser credentials enabled. Ensure you are logged in to the Signal K admin UI.');
-      } else {
-        setStatus('Browser credentials disabled; requests will omit cookies.');
-      }
-    });
-  }
-
+  serverInput.addEventListener('change', () => {
+    const value = serverInput.value.trim();
+    writeStoredBase(value);
+  });
 
   setStatus('Ready.');
 })();

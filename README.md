@@ -1,3 +1,4 @@
+
 # signalk-autopilot-simrad
 
 A Signal K server plugin for controlling **Simrad SimNet/NMEA 2000 tillerpilots** (TP22/TP32 and compatible pilots) by transmitting **PGN 127237 – Heading/Track Control**. The plugin targets gateways that accept raw NMEA 2000 frames over UDP using the Yacht Devices `YDRAW` format and exposes both REST and Signal K `PUT` interfaces for steering commands.
@@ -82,6 +83,7 @@ Signal K clients can issue PUT requests to `steering.autopilot.command` on `vess
   - `{ "action": "plus1" }`
 
 The handler returns `state: "SUCCESS"` on completion or provides an error message if the command cannot be fulfilled (for example when no heading data is available).
+
 
 ## Standalone UI
 
