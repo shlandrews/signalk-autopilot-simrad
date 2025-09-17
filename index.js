@@ -1,12 +1,10 @@
 const dgram = require('dgram');
-const fs = require('fs');
 const path = require('path');
 
 const PLUGIN_ID = 'signalk-autopilot-simrad';
 const UI_ROUTE = `/${PLUGIN_ID}`;
 const REST_BASE_PATH = `/plugins/${PLUGIN_ID}`;
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const PUBLIC_INDEX_PATH = path.join(PUBLIC_DIR, 'index.html');
 
 const MODE_MAP = {
   standby: 0,
@@ -79,11 +77,8 @@ module.exports = function simradAutopilotPlugin(app) {
   let routesRegistered = false;
   let putHandlersRegistered = false;
   let webAppRegistered = false;
-  let uiAliasLayer = null;
-  let pluginRouter = null;
-  let routerUiFallbackAttached = false;
-  let routerUiFallbackRequested = false;
-  const routerUiFallbackReasons = [];
+  let uiAliasApp = null;
+  let uiAliasLayers = [];
 
   function updateCurrentHeading() {
     const preferTrue = config.headingReference === 'true';
@@ -542,69 +537,52 @@ module.exports = function simradAutopilotPlugin(app) {
   }
 
   function registerUiAlias() {
-    if (uiAliasLayer) {
+    if (uiAliasLayers.length) {
       return;
     }
 
-    const expressApp =
-      (typeof app.getExpressApp === 'function' && app.getExpressApp()) ||
-      app.expressApp ||
-      (app.server && app.server.app) ||
-      null;
-
-    if (!expressApp || typeof expressApp.use !== 'function') {
+    const expressApp = app.express;
+    if (!expressApp || typeof expressApp.get !== 'function') {
       app.debug(
-        `Express application not available; cannot mount UI alias at ${UI_ROUTE}. Serving UI via plugin-router fallback.`
+        `Express not available; use ${REST_BASE_PATH}/ for the UI`
       );
       requestRouterUiFallback('Express app unavailable for UI alias');
       return;
     }
+    const redirectTarget = `${REST_BASE_PATH}/`;
+    const handler = (_req, res) => {
+      res.redirect(redirectTarget);
+    };
 
-    let express;
-    try {
-      express = require('express');
-    } catch (err) {
-      app.error(
-        `Express dependency not available; cannot expose UI alias at ${UI_ROUTE}: ${err.message}`
-      );
-      requestRouterUiFallback('express dependency missing for UI alias');
-      return;
-    }
+    const paths = [UI_ROUTE, `${UI_ROUTE}/`];
+    uiAliasApp = expressApp;
 
-    const router = express.Router();
-    attachStaticUiBundle(router, express, '/');
-
-    expressApp.use(UI_ROUTE, router);
-
-    if (expressApp._router && Array.isArray(expressApp._router.stack)) {
-      const stack = expressApp._router.stack;
-      const index = stack.findIndex((layer) => layer && layer.handle === router);
-      if (index > 0) {
-        const [layer] = stack.splice(index, 1);
-        stack.unshift(layer);
-        app.debug(
-          `Elevated Simrad autopilot UI alias to the front of the Express stack for ${UI_ROUTE}`
-        );
+    paths.forEach((aliasPath) => {
+      expressApp.get(aliasPath, handler);
+      if (expressApp._router && Array.isArray(expressApp._router.stack)) {
+        const layer = expressApp._router.stack[expressApp._router.stack.length - 1];
+        if (layer && !uiAliasLayers.includes(layer)) {
+          uiAliasLayers.push(layer);
+        }
       }
-    }
+    });
 
-    uiAliasLayer = { app: expressApp, router };
-    app.debug(`Mounted Simrad autopilot UI alias at ${UI_ROUTE}`);
+    app.debug(`UI alias mounted at ${UI_ROUTE} → ${redirectTarget}`);
   }
 
   function unregisterUiAlias() {
-    if (!uiAliasLayer) {
+    if (!uiAliasLayers.length) {
       return;
     }
 
-    const { app: expressApp, router } = uiAliasLayer;
-    if (expressApp && expressApp._router && Array.isArray(expressApp._router.stack)) {
-      expressApp._router.stack = expressApp._router.stack.filter(
-        (layer) => layer && layer.handle !== router
+    if (uiAliasApp && uiAliasApp._router && Array.isArray(uiAliasApp._router.stack)) {
+      uiAliasApp._router.stack = uiAliasApp._router.stack.filter(
+        (layer) => !uiAliasLayers.includes(layer)
       );
     }
 
-    uiAliasLayer = null;
+    uiAliasLayers = [];
+    uiAliasApp = null;
   }
 
   function registerWebApp() {
@@ -615,13 +593,10 @@ module.exports = function simradAutopilotPlugin(app) {
         app.debug(`Registered Simrad autopilot UI at /plugins/${PLUGIN_ID}`);
       } catch (err) {
         app.error(`Failed to register Simrad autopilot UI: ${err.message}`);
-        requestRouterUiFallback('registerPluginWebapp error');
+        app.debug(`UI assets remain available at ${REST_BASE_PATH}/`);
       }
     } else if (!webAppRegistered) {
-      app.debug(
-        'Signal K host does not support registerPluginWebapp; serving UI via plugin-router fallback.'
-      );
-      requestRouterUiFallback('registerPluginWebapp unavailable');
+      app.debug(`Signal K host does not support registerPluginWebapp; use ${REST_BASE_PATH}/ for the UI`);
     }
 
     registerUiAlias();
@@ -684,15 +659,6 @@ module.exports = function simradAutopilotPlugin(app) {
   plugin.registerWithRouter = (router) => {
     const wasRegistered = routesRegistered;
     addRoutes(router);
-    pluginRouter = router;
-
-    if (routerUiFallbackRequested && !routerUiFallbackAttached) {
-      mountRouterUiFallback();
-    }
-
-    if (typeof app.registerPluginWebapp !== 'function') {
-      requestRouterUiFallback('registerPluginWebapp unavailable');
-    }
 
     if (!wasRegistered && routesRegistered) {
       app.debug(`Simrad autopilot REST endpoints mounted at ${REST_BASE_PATH}/*`);
