@@ -1,9 +1,8 @@
 // Signal K plugin: Simrad Autopilot (TP22/TP32) via NMEA2000 PGN 127237
 // Author: Sam Andrews
 
-const express = require('express');
-const path = require('path');
 const dgram = require('dgram');
+const path = require('path');
 
 module.exports = function (app) {
   const plugin = {};
@@ -70,9 +69,11 @@ module.exports = function (app) {
 
     // Force-serve UI at /signalk-autopilot-simrad/
     if (app.express) {
-      const publicPath = path.join(__dirname, 'public');
-      app.express.use('/signalk-autopilot-simrad', express.static(publicPath));
-      app.debug(`UI forced at /signalk-autopilot-simrad (static from ${publicPath})`);
+      app.express.use(
+        '/signalk-autopilot-simrad',
+        app.express.static(path.join(__dirname, 'public'))
+      );
+      app.debug('UI forced at /signalk-autopilot-simrad');
     } else {
       app.debug('Express not available; cannot mount UI manually');
     }
